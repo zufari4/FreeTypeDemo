@@ -10,4 +10,4 @@ text with FreeType library and pure WinAPI
 
 Compile command for mingw:
   
-g++ FTWinDemo.cpp libfreetype.a -o FTWinDemo.exe -mwindows
+g++ FTWinDemo.cpp -o FTWinDemo.exe -mwindows -lfreetype
