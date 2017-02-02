@@ -4,7 +4,7 @@
 //    FreeType library and pure WinAPI.                            //
 //                                                                 //
 //    Compile command:                                             //
-//      g++ FTWinDemo.cpp -o FTWinDemo.exe -mwindows -lfreetype.   //
+//      g++ FTWinDemo.cpp -o FTWinDemo.exe -mwindows -lfreetype    //
 //                                                                 //
 //    Written by Ruslan Yusupov.                                   //
 //                                                                 //
@@ -19,13 +19,13 @@
 #include FT_FREETYPE_H
 #include FT_LCD_FILTER_H
 
-#define APP_WIDTH   800
+#define APP_WIDTH   637
 #define APP_HEIGHT  520
-#define FONT_FILE   "c:/windows/fonts/verdana.ttf"
+#define FONT_FILE   "./OpenSans-Regular.ttf"
 #define FONT_SIZE   10
 #define LRESC       LRESULT CALLBACK
 
-const COLORREF BACK_COLOR = RGB(240,240,240);
+const COLORREF BACK_COLOR = RGB(245,245,245);
 const COLORREF FORE_COLOR = RGB(0,0,0);
 
 const wchar_t* DRAW_TEXT =
@@ -96,6 +96,7 @@ void   RenderText(const wchar_t*, FT_Face, bool, COLORREF, Bitmap*);
 void   BlitGlyph(FT_Bitmap*, FT_Int, FT_Int, Bitmap*, COLORREF);
 void   DrawLine(HDC, int, int, int, int);
 void   ShowError(const char*, ...);
+void   ShowWarning(const char*, ...);
 FT_Pos dtofix(const double&);
 double fixtod(const FT_Pos);
 bool   CreateBitmap(Bitmap*, int, int, COLORREF);
@@ -103,6 +104,7 @@ void   FreeBitmap(Bitmap*);
 void   DrawBitmap(HDC, Bitmap*);
 void   ClearBitmap(Bitmap*, COLORREF);
 void   ResizeBitmap(Bitmap*, UINT, UINT);
+LPCSTR GetErrorMsg(int err);
 
 //--------------------------------
 // The entry point to the program
@@ -145,34 +147,40 @@ bool LoadApplication(AppInfo* app)
 
     FT_Error error = FT_Init_FreeType(&app->library);
     if (error) {
-        ShowError("Freetype not initialized: %d\n", error);
+        ShowError("Freetype not initialized: %s\n", GetErrorMsg(error));
         return false;
     }
 
     error = FT_Library_SetLcdFilter(app->library, FT_LCD_FILTER_DEFAULT);
     if (error) {
-        ShowError("Not set LCD filter: %d\n", error);
+        ShowWarning("Not set LCD filter: %s\n", GetErrorMsg(error));
     }
 
     error = FT_New_Face(app->library, FONT_FILE, 0, &app->face);
     if (error) {
-        ShowError("Font not load: %d\n", error);
+        ShowError("Font not load: %s\n", GetErrorMsg(error));
         return false;
     }
 
     error = FT_Set_Char_Size(app->face, FONT_SIZE * 64, 0, GetDpi(), 0);
     if (error) {
-        ShowError("Cant set char size: %d\n", error);
+        ShowError("Cant set char size: %s\n", GetErrorMsg(error));
         return false;
     }
 
-    app->kerning    = FT_HAS_KERNING( app->face );
+    app->kerning = FT_HAS_KERNING( app->face );
 
-    app->font = CreateFont(-MulDiv(FONT_SIZE, GetDpi(), 72), 0, 0, 0, 0,
-                           FALSE, FALSE, FALSE,
-                           DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                           CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                           DEFAULT_PITCH, app->face->family_name);
+    error = AddFontResourceExA(FONT_FILE, FR_PRIVATE, 0);
+    if (error == 0) {
+        ShowError("Cant add font resource\n");
+        return false;
+    }
+
+    app->font = CreateFontA(-MulDiv(FONT_SIZE, GetDpi(), 72), 0, 0, 0, 0,
+                            FALSE, FALSE, FALSE,
+                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                            CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                            DEFAULT_PITCH, app->face->family_name);
     if (app->font)
         SendMessage(app->window, WM_SETFONT, (WPARAM)app->font, 1);
     else {
@@ -194,18 +202,23 @@ bool LoadApplication(AppInfo* app)
 void FreeApplication(AppInfo* app)
 {
     FreeBitmap(&app->bitmap);
+
     if (app->font) {
         DeleteObject(app->font);
         app->font = NULL;
     }
+    RemoveFontResourceExA(FONT_FILE, FR_PRIVATE, 0);
+
     if (app->face) {
         FT_Done_Face(app->face);
         app->face = NULL;
     }
+
     if (app->library) {
         FT_Done_FreeType(app->library);
         app->library = NULL;
     }
+
     if (app->window) {
         DestroyWindow(app->window);
         app->window = NULL;
@@ -235,8 +248,8 @@ HWND CreateWnd(const char* caption, int width, int height, COLORREF backColor)
     if ( RegisterClassEx(&wc) == 0 )
         return NULL;
 
-    return CreateWindow(className, caption, WS_OVERLAPPEDWINDOW|WS_VISIBLE, 0,0,
-                        width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
+    return CreateWindowA(className, caption, WS_OVERLAPPEDWINDOW|WS_VISIBLE, 0,0,
+                         width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
 }
 
 //--------------
@@ -298,6 +311,7 @@ void OnPaint(AppInfo* app)
 
     // Draw text using WinAPI
     SelectObject( app->hdc, app->font );
+    SetTextColor( app->hdc , FORE_COLOR );
     SetBkMode( app->hdc, TRANSPARENT );
     RECT rect;
     rect.left   = app->bitmap.width+1;
@@ -468,7 +482,7 @@ void SetCenter(HWND window)
 bool AssignWindow(AppInfo* app)
 {
     SetLastError(0);
-    SetWindowLongPtr( app->window, GWLP_USERDATA, (LONG)app );
+    SetWindowLongPtr( app->window, GWLP_USERDATA, (LONG_PTR)app );
     return GetLastError() == 0;
 }
 
@@ -483,6 +497,19 @@ void ShowError(const char* fmt, ...)
     vsnprintf(str, sizeof(str), fmt, args);
     va_end   (args);
     MessageBoxA(NULL, str, "Error", MB_ICONERROR);
+}
+
+//-----------------------------
+// Show window with an warning
+//-----------------------------
+void ShowWarning(const char* fmt, ...)
+{
+    char     str[255];
+    va_list  args;
+    va_start (args, fmt);
+    vsnprintf(str, sizeof(str), fmt, args);
+    va_end   (args);
+    MessageBoxA(NULL, str, "Warning", MB_ICONWARNING);
 }
 
 //---------------------------------
@@ -616,3 +643,12 @@ double fixtod(const FT_Pos val)
     return sig;
 }
 
+LPCSTR GetErrorMsg(int err)
+{
+    #undef __FTERRORS_H__
+    #define FT_ERRORDEF( e, v, s )  case e: return s;
+    #define FT_ERROR_START_LIST     switch (err) {
+    #define FT_ERROR_END_LIST       }
+    #include FT_ERRORS_H
+    return "(Unknown error)";
+}
