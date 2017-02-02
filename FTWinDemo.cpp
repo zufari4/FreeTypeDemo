@@ -4,7 +4,7 @@
 //    FreeType library and pure WinAPI.                            //
 //                                                                 //
 //    Compile command:                                             //
-//      g++ FTWinDemo.cpp libfreetype.a -o FTWinDemo.exe -mwindows //
+//      g++ FTWinDemo.cpp -o FTWinDemo.exe -mwindows -lfreetype.   //
 //                                                                 //
 //    Written by Ruslan Yusupov.                                   //
 //                                                                 //
@@ -21,7 +21,7 @@
 
 #define APP_WIDTH   800
 #define APP_HEIGHT  520
-#define FONT_FILE   "c:/windows/fonts/Verdana.ttf"
+#define FONT_FILE   "c:/windows/fonts/verdana.ttf"
 #define FONT_SIZE   10
 #define LRESC       LRESULT CALLBACK
 
