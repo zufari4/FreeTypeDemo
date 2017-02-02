@@ -5,7 +5,7 @@ text with FreeType library and pure WinAPI
 
 
 
-![Demo screenshot](https://github.com/zufari4/FreeTypeDemo/blob/master/FTWinDemo.png)
+![Demo screenshot](https://github.com/zufari4/FreeTypeDemo/blob/master/FTWinDemo.bmp)
 
 
 Compile command for mingw:
